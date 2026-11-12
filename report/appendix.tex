@@ -1,0 +1,48 @@
+\clearpage
+\renewcommand{\thefigure}{А.\arabic{figure}}
+\setcounter{figure}{0}
+\section*{ДОДАТОК А}
+\begin{center}\bfseries Детальні діаграми класів\end{center}
+\addcontentsline{toc}{section}{ДОДАТОК А Детальні діаграми класів}
+
+\fig[\textwidth]{class_core.png}{Діаграма класів пакета \code{core}}
+\fig[\textwidth]{class_net_api.png}{Діаграма класів пакетів \code{net}, \code{api},
+\code{llm}, \code{search}}
+
+\clearpage
+\section*{ДОДАТОК Б}
+\begin{center}\bfseries Репозиторій і відтворення результатів\end{center}
+\addcontentsline{toc}{section}{ДОДАТОК Б Репозиторій і відтворення результатів}
+
+Вихідний код, історія комітів, UML-джерела, сирі результати вимірювань і ця записка
+зберігаються в репозиторії:
+\url{https://github.com/d1aboli/course_work_parallel_computing}.
+
+Відтворення всіх результатів (Git Bash, у корені репозиторію, архів \code{D1.7GB.zip} поруч):
+\begin{lstlisting}
+docker compose up --build -d        # dataset-init, ollama-init, ollama, server
+./search --index 12                 # побудова індексу
+./search --expand "storm at sea"    # перевірка пошуку
+bash bench/run_all.sh               # дослідження, результати в bench/results
+python bench/plot.py                # графіки в report/figures
+python report/gen_tables.py         # таблиці записки
+cd report && xelatex main.tex && xelatex main.tex
+\end{lstlisting}
+
+Структура репозиторію:
+\begin{lstlisting}
+src/main/java/ua/kpi/pocw/
+  core/    ThreadPool, Indexer, IndexBuilder, PartitionedIndexBuilder,
+           StripedIndexBuilder, TreiberStack, InvertedIndex, BatchTermTable
+  net/     HttpServer, HttpRequest, HttpResponse, WebSocket
+  api/     Router, SearchService, WsSearchHandler
+  search/  Searcher (BM25), Snippets
+  llm/     OllamaClient, QueryExpander
+  cli/     SearchCli           bench/  Bench
+src/test/java/...              власний тест-раннер і 38 тестів
+web/                           Web UI
+docs/uml/                      PlantUML-діаграми
+tools/prepare_dataset.py       підготовка корпусу
+bench/                         сценарій дослідження, результати, графіки
+report/                        пояснювальна записка (LaTeX)
+\end{lstlisting}
