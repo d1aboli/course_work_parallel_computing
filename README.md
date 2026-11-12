@@ -68,7 +68,7 @@ DATA_DIR=data/docs java -jar build/app.jar       # потрібна локаль
 | Ендпоінт | Запит | Відповідь |
 |---|---|---|
 | `GET /api/health` | — | `{"status":"ok","ollama":true,"index_ready":true,"indexing":false}` |
-| `POST /api/index` | `{"threads":4}` (+ необов'язкові `partitions`, `batch_size`, `impl`: `partitioned`\|`striped`) | `{"status":"ok","documents_indexed":17000,"time_ms":5100,...,"phases":{...}}` |
+| `POST /api/index` | `{"threads":4}` (+ необов'язкові `partitions`, `batch_size`, `impl`: `partitioned`\|`striped`, `mapper`: `arena`\|`hashmap`) | `{"status":"ok","documents_indexed":17000,"time_ms":5100,...,"phases":{...}}` |
 | `POST /api/search` | `{"query":"whale ship","mode":"keyword"}` (+ `expand`, `top_k`) | `{"results":[{"doc_id":"2701_0003","score":1.0,"snippet":"…"}],"time_ms":4}` |
 | `GET /api/stats` | — | `{"documents":17000,"index_build_time_ms":5100,"threads_used":4,...}` |
 | `WS /ws/search` | `{"query":"whale ship"}` | `query_expansion` → `keyword_search` → `done` |
