@@ -22,3 +22,8 @@ report/*.toc
 report/*.fls
 report/*.fdb_latexmk
 report/*.xdv
+
+# transfer artifacts
+*.bundle
+*.tgz
+Claude outputs/
