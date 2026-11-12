@@ -52,13 +52,15 @@ class IndexBuilderTest {
     try (TestCorpus c = new TestCorpus(400, 300, 42)) {
       var ref = reference(c);
       Indexer indexer = new Indexer(c.dir());
-      for (String impl : new String[] {"partitioned", "striped"}) {
-        for (int threads : new int[] {1, 2, 4, 8, 16}) {
-          for (int parts : new int[] {1, 3, 64}) {
-            var s = indexer.build(new Indexer.BuildRequest(threads, parts, 7, impl));
-            equal(400, s.documentsIndexed(), "documents");
-            assertMatches(ref, indexer.snapshot().index(),
-                impl + "/t" + threads + "/p" + parts);
+      for (String mapper : new String[] {"arena", "hashmap"}) {
+        for (String impl : new String[] {"partitioned", "striped"}) {
+          for (int threads : new int[] {1, 2, 4, 8, 16}) {
+            for (int parts : new int[] {1, 3, 64}) {
+              var s = indexer.build(new Indexer.BuildRequest(threads, parts, 7, impl, mapper));
+              equal(400, s.documentsIndexed(), "documents");
+              assertMatches(ref, indexer.snapshot().index(),
+                  mapper + "/" + impl + "/t" + threads + "/p" + parts);
+            }
           }
         }
       }
@@ -76,6 +78,21 @@ class IndexBuilderTest {
         indexer.build(new Indexer.BuildRequest(12, 1 + run % 2, 1, impl));
         assertMatches(ref, indexer.snapshot().index(), impl + " run " + run);
       }
+    }
+  }
+
+  @Test
+  void arenaMapperHandlesCaseStopWordsAndCollisions() throws Exception {
+    try (TestCorpus c = new TestCorpus(0, 0, 1)) {
+      // "Aa"/"BB" share String.hashCode; mixed case, stop words, digits, too long runs
+      c.write("a.txt", "Aa BB aa bb AA The the THE x 42 42 " + "z".repeat(40) + " Ünïcode");
+      c.write("b.txt", "bb\nBB\tbB end");
+      var ref = reference(c);
+      Indexer indexer = new Indexer(c.dir());
+      indexer.build(new Indexer.BuildRequest(1, 2, 1, "partitioned", "arena"));
+      assertMatches(ref, indexer.snapshot().index(), "arena");
+      equal(3, indexer.snapshot().index().termFrequency("aa", 0), "aa counted 3 times");
+      equal(0, indexer.snapshot().index().documentFrequency("the"), "stop word dropped");
     }
   }
 
