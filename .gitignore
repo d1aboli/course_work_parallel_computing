@@ -1,0 +1,24 @@
+# build output
+build/
+out/
+*.class
+# corpus and archives (see README: "Датасет")
+data/
+*.zip
+data_prep.log
+# benchmark scratch
+bench/results/*.tmp
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+# LaTeX intermediates
+report/*.aux
+report/*.log
+report/*.out
+report/*.toc
+report/*.fls
+report/*.fdb_latexmk
+report/*.xdv
