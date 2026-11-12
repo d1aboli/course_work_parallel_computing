@@ -249,6 +249,11 @@ public final class Bench {
             int status;
             try {
               status = roundTrip(s, body);
+              if (status >= 1000) { // server rotated the keep-alive connection: not an error
+                status -= 1000;
+                s.close();
+                s = null;
+              }
             } catch (IOException e) {
               status = -1;
               try {
@@ -325,7 +330,10 @@ public final class Bench {
     return sorted[Math.max(0, idx)] / 1e6;
   }
 
-  /** Sends one keep-alive POST /api/search and reads the response; returns the status. */
+  /**
+   * Sends one keep-alive POST /api/search and reads the response; returns the status, plus 1000
+   * if the server announced {@code Connection: close} (the caller must reconnect).
+   */
   private int roundTrip(Socket s, String body) throws IOException {
     byte[] b = body.getBytes(StandardCharsets.UTF_8);
     OutputStream o = s.getOutputStream();
@@ -347,10 +355,8 @@ public final class Bench {
       }
     }
     in.readNBytes(len);
-    if (close) {
-      throw new IOException("server closed connection");
-    }
-    return Integer.parseInt(status.split(" ")[1]);
+    int code = Integer.parseInt(status.split(" ")[1]);
+    return close ? code + 1000 : code;
   }
 
   private static String line(InputStream in) throws IOException {
