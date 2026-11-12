@@ -7,13 +7,13 @@ cd "$(dirname "$0")/.."
 # Git Bash would rewrite container paths like /app/... into C:/Program Files/Git/app/...
 export MSYS_NO_PATHCONV=1
 # STEPS="4 5 6" bash bench/run_all.sh  re-runs only the selected parts
-STEPS=${STEPS:-"1 2 3 4 5 6"}
+STEPS=${STEPS:-"1 2 3 4 5 6 7"}
 step() { [[ " $STEPS " == *" $1 "* ]]; }
 X="docker compose exec -T server"
 RUNS=${RUNS:-3}
 THREADS=${THREADS:-1,2,4,6,8,10,12,16}
 
-if [[ "$STEPS" == "1 2 3 4 5 6" ]]; then
+if [[ "$STEPS" == "1 2 3 4 5 6 7" ]]; then
   $X sh -c 'rm -f /app/bench/results/*.csv /app/bench/results/*.json'
 fi
 $X sh -c 'nproc; cat /proc/cpuinfo | grep "model name" | head -1; free -m' | tee bench/results/env.txt
@@ -54,6 +54,11 @@ if step 6; then
 echo "== 6. functional queries"
 $X bench queries --file /app/bench/test_queries.txt --out queries.json
 $X bench queries --file /app/bench/test_queries.txt --expand --out queries_expand.json
+fi
+
+if step 7; then
+echo "== 7. first mapper version (String per token) for the before/after comparison"
+$X bench index --threads "$THREADS" --runs "$RUNS" --impl partitioned --mapper hashmap --partitions 64 --out mapper_hashmap.csv
 fi
 
 echo "done: see bench/results"

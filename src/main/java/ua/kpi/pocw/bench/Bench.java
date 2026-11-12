@@ -105,25 +105,30 @@ public final class Bench {
   private void index(Map<String, String> opt, Path out) throws Exception {
     int[] threads = ints(opt.getOrDefault("threads", "1,2,4,6,8,10,12,16"));
     String[] impls = opt.getOrDefault("impl", "partitioned").split(",");
+    String[] mappers = opt.getOrDefault("mapper", "arena").split(",");
     int[] partitions = ints(opt.getOrDefault("partitions", "64"));
     int runs = Integer.parseInt(opt.getOrDefault("runs", "3"));
     int batch = Integer.parseInt(opt.getOrDefault("batch", "32"));
     Random rnd = new Random(Long.parseLong(opt.getOrDefault("seed", "2026")));
 
     List<Object[]> configs = new ArrayList<>();
-    for (String impl : impls) {
-      for (int p : partitions) {
-        for (int t : threads) {
-          configs.add(new Object[] {impl, p, t});
+    for (String mapper : mappers) {
+      for (String impl : impls) {
+        for (int p : partitions) {
+          for (int t : threads) {
+            configs.add(new Object[] {impl, p, t, mapper});
+          }
         }
       }
     }
     System.out.printf("warm-up build (JIT, page cache)...%n");
-    post("/api/index", Json.obj("threads", threads[threads.length - 1], "impl", impls[0],
-        "gc", true), Duration.ofHours(1));
+    for (String mapper : mappers) {
+      post("/api/index", Json.obj("threads", threads[threads.length - 1], "impl", impls[0],
+          "mapper", mapper, "gc", true), Duration.ofHours(1));
+    }
 
     try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(out))) {
-      w.println("run,impl,partitions,threads,time_ms,documents,list_ms,map_merge_wall_ms,"
+      w.println("run,mapper,impl,partitions,threads,time_ms,documents,list_ms,map_merge_wall_ms,"
           + "finalize_wall_ms,read_cpu_ms,tokenize_cpu_ms,merge_cpu_ms,sync1,sync2,heap_used_mb,"
           + "rss_mb");
       for (int run = 1; run <= runs; run++) {
@@ -131,21 +136,23 @@ public final class Bench {
         Collections.shuffle(order, rnd);
         for (Object[] c : order) {
           Map<String, Object> r = post("/api/index", Json.obj("threads", c[2], "partitions",
-              c[1], "batch_size", batch, "impl", c[0], "gc", true), Duration.ofHours(1));
+              c[1], "batch_size", batch, "impl", c[0], "mapper", c[3], "gc", true),
+              Duration.ofHours(1));
           Map<String, Object> ph = (Map<String, Object>) r.get("phases");
           Map<String, Object> sy = (Map<String, Object>) r.get("sync");
           Map<String, Object> mem = (Map<String, Object>) r.get("memory");
           Object s1 = c[0].equals("striped") ? sy.get("lock_contended") : sy.get("handoffs");
           Object s2 = c[0].equals("striped") ? sy.get("lock_wait_ms")
               : sy.get("fragments_merged_by_other_thread");
-          w.printf("%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s%n", run, c[0], c[1], c[2],
+          w.printf("%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s%n", run, c[3], c[0], c[1],
+              c[2],
               r.get("time_ms"), r.get("documents_indexed"), ph.get("list_ms"),
               ph.get("map_merge_wall_ms"), ph.get("finalize_wall_ms"), ph.get("read_cpu_ms"),
               ph.get("tokenize_cpu_ms"), ph.get("merge_cpu_ms"), s1, s2,
               mem.get("heap_used_mb"), mem.get("rss_mb"));
           w.flush();
-          System.out.printf("run %d  %-11s p=%-4s t=%-3s %7s ms%n", run, c[0], c[1], c[2],
-              r.get("time_ms"));
+          System.out.printf("run %d  %-7s %-11s p=%-4s t=%-3s %7s ms%n", run, c[3], c[0], c[1],
+              c[2], r.get("time_ms"));
         }
       }
     }
