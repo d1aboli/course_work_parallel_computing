@@ -1,5 +1,6 @@
 # One-command deployment:  docker compose up --build
-# Dataset location on the host is taken from DATASET_DIR (see .env.example).
+# The corpus is unpacked once from DATASET_ZIP into the named volume `corpus` (Linux filesystem):
+# reading 17k small files through a Windows bind mount is ~10x slower and would hide the scaling.
 name: pocw-search
 
 services:
@@ -10,20 +11,36 @@ services:
     ports:
       - "${SERVER_PORT:-8080}:8080"
     environment:
-      DATA_DIR: /data
+      DATA_DIR: /data/docs
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:1.5b}
       LLM_CONCURRENCY: ${LLM_CONCURRENCY:-2}
       AUTO_INDEX_THREADS: ${AUTO_INDEX_THREADS:-0}
       JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
     volumes:
-      - ${DATASET_DIR:-./data/docs}:/data:ro
+      - corpus:/data:ro
       - ./bench/results:/app/bench/results
     depends_on:
+      dataset-init:
+        condition: service_completed_successfully
       ollama:
         condition: service_started
     stop_grace_period: 15s
     restart: unless-stopped
+
+  # One-shot job: splits the Gutenberg archive into documents inside the `corpus` volume.
+  # Skipped when the volume is already populated; `docker volume rm pocw-search_corpus` to redo.
+  dataset-init:
+    image: python:3.12-slim
+    container_name: dataset-init
+    volumes:
+      - ./tools:/tools:ro
+      - ${DATASET_ZIP:-./D1.7GB.zip}:/src/dataset.zip:ro
+      - corpus:/corpus
+    command: >
+      sh -c 'if [ -f /corpus/manifest.json ]; then echo "corpus ready:"; cat /corpus/manifest.json;
+      else rm -rf /corpus/docs && python -u /tools/prepare_dataset.py /src/dataset.zip /corpus/docs; fi'
+    restart: "no"
 
   ollama:
     image: ollama/ollama:latest
@@ -57,3 +74,4 @@ services:
 
 volumes:
   ollama_data:
+  corpus:

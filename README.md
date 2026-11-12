@@ -30,17 +30,23 @@
 занятті) — у git не зберігається. Книжки ріжуться на документи ≈100 КБ по межах абзаців, бо вимога
 завдання — не менше 10 000 документів; ліцензійні шапки Gutenberg вирізаються.
 
-```bash
-python tools/prepare_dataset.py D1.7GB.zip data/docs
-# → data/docs/<book>_<part>.txt  і  data/manifest.json зі статистикою
-```
+Архів кладеться в корінь проєкту (або шлях задається змінною `DATASET_ZIP` у `.env`). Під час
+першого `docker compose up` одноразовий сервіс `dataset-init` розпаковує його в Docker-том `corpus`
+(Linux-файлова система контейнерів) і записує `manifest.json` зі статистикою; наступні запуски
+використовують готовий том. Том, а не bind mount з диска Windows, використано свідомо: читання
+17 тис. дрібних файлів через міст Windows ↔ WSL2 у ~10 разів повільніше й приховало б масштабування.
 
-Інший шлях до корпусу задається змінною `DATASET_DIR` у файлі `.env` (див. `.env.example`).
+```bash
+docker compose run --rm dataset-init                     # (необов'язково) підготувати окремо
+docker compose exec server cat /data/manifest.json       # статистика корпусу
+docker volume rm pocw-search_corpus                      # перерізати корпус наново
+python tools/prepare_dataset.py D1.7GB.zip data/docs     # те саме локально, без Docker
+```
 
 ## Збирання й запуск
 
 ```bash
-docker compose up --build -d     # server + ollama + одноразовий ollama-init (завантаження моделі)
+docker compose up --build -d     # dataset-init, ollama-init (одноразові), ollama, server
 docker compose ps                # search-server має стати healthy
 curl http://localhost:8080/api/health
 ```
