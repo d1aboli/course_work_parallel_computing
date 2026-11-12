@@ -11,7 +11,7 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /src/build/app.jar /app/app.jar
 COPY web /app/web
-COPY bench/queries.txt /app/bench/queries.txt
+COPY bench/queries.txt bench/test_queries.txt /app/bench/
 COPY docker/search docker/bench docker/healthcheck /usr/local/bin/
 RUN sed -i 's/\r$//' /usr/local/bin/search /usr/local/bin/bench /usr/local/bin/healthcheck \
  && chmod +x /usr/local/bin/search /usr/local/bin/bench /usr/local/bin/healthcheck \

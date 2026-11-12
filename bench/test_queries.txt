@@ -1,0 +1,12 @@
+# Functional test queries for the report table (expected outcome noted in the report)
+moby dick white whale
+sherlock holmes baker street
+tarzan apes jungle
+romeo juliet
+pride prejudice darcy
+abraham lincoln
+electricity magnetism
+treasure island
+quixotic
+xyzzyplugh
+the and of
