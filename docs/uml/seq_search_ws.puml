@@ -1,0 +1,38 @@
+@startuml seq_search_ws
+!include _style.iuml
+autonumber
+actor "Web UI" as UI
+participant "HttpServer\n(http-пул)" as S
+participant "WsSearchHandler\n(ws-пул)" as WS
+participant SearchService as SS
+participant QueryExpander as QE
+participant Ollama
+UI -> S : GET /ws/search\nUpgrade: websocket, Sec-WebSocket-Key
+S -> S : перевірка рукостискання
+alt некоректне рукостискання
+  S --> UI : 400 / 405 / 426
+end
+S --> UI : 101 Switching Protocols\nSec-WebSocket-Accept = Base64(SHA-1(key+GUID))
+S -> WS : передача сокета в ws-пул
+loop доки сесія відкрита (тайм-аут простою 60 с)
+  UI -> WS : text {"query":"..."} (можливо фрагментований)
+  alt невалідний JSON / порожній запит
+    WS --> UI : {"stage":"error","data":{...}}
+  else
+    WS -> SS : expand(query)
+    SS -> QE : expand
+    QE -> Ollama : /api/generate
+    Ollama --> QE : терми
+    WS --> UI : {"stage":"query_expansion","data":{"original","expanded_terms"}}
+    WS -> SS : keywordSearch
+    WS --> UI : {"stage":"keyword_search","data":{"results","time_ms"}}
+    WS --> UI : {"stage":"done"}
+  end
+end
+alt порушення протоколу
+  WS --> UI : close 1002 / 1003 / 1007 / 1009
+else клієнт закриває
+  UI -> WS : close 1000
+  WS --> UI : close 1000
+end
+@enduml

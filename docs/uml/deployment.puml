@@ -1,0 +1,29 @@
+@startuml deployment
+!include _style.iuml
+node "Хост (Windows 11 + Docker Desktop / WSL2)" as host {
+  artifact "Браузер\n(Web UI)" as browser
+  artifact "search / search.cmd\n(CLI-обгортка)" as cliw
+  folder "./data/docs\n(корпус, ~17 тис. *.txt)" as data
+  folder "./bench/results" as results
+  node "Docker Compose: проєкт pocw-search" as compose {
+    node "search-server\n(eclipse-temurin:21-jre)" as server {
+      component "java -jar app.jar\nHttpServer :8080" as app
+      component "/app/web\n(статичний UI)" as web
+      component "search, bench\n(CLI у контейнері)" as tools
+    }
+    node "ollama\n(ollama/ollama)" as ollama {
+      component "Ollama :11434\nqwen2.5:1.5b" as llm
+    }
+    node "ollama-init\n(одноразовий)" as init
+    database "том ollama_data\n(ваги моделі)" as vol
+  }
+}
+browser --> app : HTTP + WebSocket :8080
+cliw --> tools : docker compose exec
+tools --> app : HTTP localhost:8080
+app --> llm : HTTP ollama:11434\n/api/generate, /api/tags
+init --> llm : ollama pull
+llm --> vol
+data --> server : bind mount /data (ro)
+results <-- server : bind mount /app/bench/results
+@enduml

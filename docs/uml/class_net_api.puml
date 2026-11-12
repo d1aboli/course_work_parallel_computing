@@ -1,0 +1,88 @@
+@startuml class_net_api
+!include _style.iuml
+package net {
+  class HttpServer {
+    - httpPool : ThreadPool
+    - wsPool : ThreadPool
+    - connections : Set<Connection>
+    - stopping : AtomicBoolean
+    + start()
+    + stop(graceMs : long)
+    - acceptLoop()
+    - serve(c : Connection)
+    - upgrade(c, req, in, out) : boolean
+  }
+  interface "HttpServer.Handler" as H {
+    + handle(r : HttpRequest) : HttpResponse
+  }
+  class HttpRequest {
+    + {static} read(in : InputStream) : HttpRequest
+    + method() / path() / header(n)
+    + keepAlive() : boolean
+    + isWebSocketUpgrade() : boolean
+  }
+  class HttpResponse {
+    + {static} json(status, value) : HttpResponse
+    + {static} error(status, msg) : HttpResponse
+    + write(out, keepAlive : boolean)
+  }
+  class WebSocket {
+    - writeLock : ReentrantLock
+    + {static} acceptKey(key) : String
+    + {static} accept(req, socket, in, out) : WebSocket
+    + readText() : String
+    + sendText(text : String)
+    + close(code : int, reason : String)
+  }
+}
+package api {
+  class Router {
+    + handle(r : HttpRequest) : HttpResponse
+    - health() / index(r) / search(r) / stats()
+    - staticFile(r)
+  }
+  class SearchService {
+    + expand(q, enabled, useCache) : Expanded
+    + keywordSearch(e : Expanded, topK) : Results
+  }
+  class WsSearchHandler {
+    + session(ws : WebSocket)
+  }
+}
+package llm {
+  class QueryExpander {
+    - cache : LinkedHashMap (LRU)
+    - inFlight : ConcurrentHashMap<String, CompletableFuture>
+    - permits : Semaphore
+    + expand(q, terms, useCache) : Expansion
+    ~ {static} parseTerms(raw) : List<String>
+    ~ {static} clean(c, queryTerms) : List<String>
+  }
+  class OllamaClient {
+    - http : java.net.http.HttpClient
+    + generate(prompt, timeout) : String
+    + isAvailable(timeout) : boolean
+  }
+}
+package search {
+  class Searcher <<utility>> {
+    + {static} search(index, user, expansion, topK) : List<Hit>
+  }
+  class Snippets <<utility>> {
+    + {static} build(file : Path, terms) : String
+  }
+}
+HttpServer --> H
+Router ..|> H
+HttpServer ..> HttpRequest
+HttpServer ..> HttpResponse
+HttpServer ..> WebSocket
+HttpServer --> WsSearchHandler : ws session
+Router --> SearchService
+WsSearchHandler --> SearchService
+SearchService --> QueryExpander
+SearchService ..> Searcher
+SearchService ..> Snippets
+QueryExpander --> OllamaClient
+Router --> OllamaClient : health probe
+@enduml

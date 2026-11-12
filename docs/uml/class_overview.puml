@@ -1,0 +1,73 @@
+@startuml class_overview
+!include _style.iuml
+hide empty members
+package "ua.kpi.pocw" {
+  class Main
+  class App
+  class Config <<record>>
+}
+package net {
+  class HttpServer
+  class HttpRequest
+  class HttpResponse
+  class WebSocket
+  class HttpException
+}
+package api {
+  class Router
+  class SearchService
+  class WsSearchHandler
+}
+package core {
+  class ThreadPool
+  class Indexer
+  interface IndexBuilder
+  class PartitionedIndexBuilder
+  class StripedIndexBuilder
+  class InvertedIndex
+  class DocumentTable
+  class PostingList
+  class TreiberStack<T>
+  class Tokenizer
+}
+package search {
+  class Searcher
+  class Snippets
+}
+package llm {
+  class QueryExpander
+  class OllamaClient
+}
+package util {
+  class Json
+}
+package "cli / bench" {
+  class SearchCli
+  class Bench
+}
+Main --> App
+App --> Config
+App *-- HttpServer
+App *-- Router
+HttpServer *-- "2" ThreadPool : http + ws
+HttpServer ..> WebSocket
+Router --> Indexer
+Router --> SearchService
+WsSearchHandler --> SearchService
+SearchService --> QueryExpander
+SearchService --> Searcher
+SearchService --> Snippets
+QueryExpander --> OllamaClient
+Indexer ..> ThreadPool : creates per build
+Indexer --> IndexBuilder
+IndexBuilder <|.. PartitionedIndexBuilder
+IndexBuilder <|.. StripedIndexBuilder
+PartitionedIndexBuilder *-- TreiberStack
+IndexBuilder ..> InvertedIndex : finish()
+InvertedIndex *-- DocumentTable
+Indexer ..> Tokenizer
+Searcher ..> InvertedIndex
+SearchCli ..> Json
+Bench ..> Json
+Router ..> Json
+@enduml

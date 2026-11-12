@@ -1,0 +1,14 @@
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam monochrome false
+skinparam packageStyle rectangle
+skinparam ArrowColor #333333
+skinparam classAttributeIconSize 0
+skinparam sequenceMessageAlign left
+skinparam ParticipantPadding 8
+skinparam BoxPadding 6
+skinparam classBackgroundColor #FFFFFF
+skinparam classBorderColor #555555
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #BBAA55

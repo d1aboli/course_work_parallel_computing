@@ -1,0 +1,110 @@
+@startuml class_core
+!include _style.iuml
+package core {
+  class ThreadPool {
+    - lock : ReentrantLock
+    - notEmpty : Condition
+    - terminated : Condition
+    - queue : ArrayDeque<Runnable>
+    - workers : List<Thread>
+    - state : State
+    + ThreadPool(threads : int, name : String)
+    + submit(task : Callable<T>) : Future<T>
+    + execute(task : Runnable)
+    + shutdown()
+    + shutdownNow() : List<Runnable>
+    + awaitTermination(t : long, u : TimeUnit) : boolean
+    + close()
+    - workerLoop()
+  }
+  class Indexer {
+    - dataDir : Path
+    - current : AtomicReference<Snapshot>
+    - buildLock : ReentrantLock
+    + build(req : BuildRequest) : BuildStats
+    + snapshot() : Snapshot
+    + isBuilding() : boolean
+    - mapBatch(docs, from, to, builder, ...)
+    ~ listFiles(root : Path) : List<Path>
+  }
+  class "Indexer.BuildRequest" as BR <<record>> {
+    threads, partitions, batchSize : int
+    impl : String
+  }
+  class "Indexer.Snapshot" as SN <<record>> {
+    index : InvertedIndex
+    stats : BuildStats
+  }
+  interface IndexBuilder {
+    + addBatch(batch : Map<String, PostingList>)
+    + finish(pool : ThreadPool, docs : DocumentTable) : InvertedIndex
+    + name() : String
+    + stats() : Map<String, Object>
+    + {static} create(impl : String, p : int) : IndexBuilder
+  }
+  class PartitionedIndexBuilder {
+    - partitions : Partition[]
+    - handoffs : LongAdder
+    - drain(p : Partition) : boolean
+    - merge(target, f : Fragment)
+  }
+  class "Partition" as PART {
+    inbox : TreiberStack<Fragment>
+    busy : AtomicBoolean
+    terms : HashMap<String, PostingList>
+  }
+  class StripedIndexBuilder {
+    - locks : ReentrantLock[]
+    - stripes : HashMap<String, PostingList>[]
+    - lockWaitNanos : LongAdder
+  }
+  class TreiberStack<T> {
+    - head : AtomicReference<Node<T>>
+    + push(v : T)
+    + pop() : T
+    + isEmpty() : boolean
+  }
+  class InvertedIndex {
+    - partitions : Map<String, long[]>[]
+    - docs : DocumentTable
+    + {static} partitionOf(term, n) : int
+    + postings(term : String) : long[]
+    + documentFrequency(term) : int
+    + termFrequency(term, doc) : int
+  }
+  class DocumentTable {
+    - ids : String[]
+    - paths : Path[]
+    - lengths : int[]
+    + averageLength() : double
+    + readableCount() : int
+  }
+  class PostingList {
+    - data : long[]
+    - size : int
+    - sorted : boolean
+    + {static} pack(doc, tf) : long
+    + add(doc : int, tf : int)
+    + addAll(other : PostingList)
+    + toSortedArray() : long[]
+  }
+  class Tokenizer <<utility>> {
+    + {static} tokenize(data : byte[], len : int, sink)
+    + {static} tokenizeQuery(text : String) : List<String>
+  }
+}
+Indexer +-- BR
+Indexer +-- SN
+Indexer --> "0..1" SN : current
+Indexer ..> ThreadPool
+Indexer ..> IndexBuilder
+Indexer ..> Tokenizer
+IndexBuilder <|.. PartitionedIndexBuilder
+IndexBuilder <|.. StripedIndexBuilder
+PartitionedIndexBuilder *-- "P" PART
+PART *-- TreiberStack
+PART o-- PostingList
+StripedIndexBuilder o-- PostingList
+SN *-- InvertedIndex
+InvertedIndex *-- DocumentTable
+@enduml

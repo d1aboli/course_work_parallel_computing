@@ -1,0 +1,48 @@
+@startuml seq_index
+!include _style.iuml
+autonumber
+actor Клієнт
+participant "HttpServer\n(потік http-пулу)" as S
+participant Router
+participant Indexer
+participant "ThreadPool\n(threads)" as Pool
+participant "map-задача ×T" as Task
+participant "PartitionedIndexBuilder" as B
+Клієнт -> S : POST /api/index {"threads":T}
+S -> Router : handle(req)
+Router -> Router : перевірка threads, partitions,\nbatch_size, impl
+alt некоректні параметри
+  Router --> Клієнт : 400 {"status":"error"}
+end
+Router -> Indexer : build(BuildRequest)
+alt buildLock зайнятий
+  Indexer --> Router : BuildInProgressException
+  Router --> Клієнт : 409
+end
+Indexer -> Indexer : listFiles(): обхід і сортування *.txt\n(id документа = позиція у списку)
+Indexer -> Pool ** : new ThreadPool(T)
+loop кожен батч із batch_size документів
+  Indexer -> Pool : submit(mapBatch)
+end
+par T робочих потоків
+  Pool -> Task : run()
+  Task -> Task : readAllBytes + Tokenizer\n→ локальна HashMap (без синхронізації)
+  Task -> B : addBatch(local)
+  B -> B : розбиття на фрагменти по партиціях
+  loop кожен фрагмент
+    B -> B : inbox.push (CAS)
+    alt busy.compareAndSet(false,true)
+      B -> B : drain: злиття всіх фрагментів\nз inbox у HashMap партиції;\nbusy.set(false); повторна перевірка
+    else партиція зайнята
+      B -> B : hand-off: фрагмент зіллє власник
+    end
+  end
+end
+Indexer -> Indexer : Future.get() для всіх задач; docs.seal()
+Indexer -> B : finish(pool)
+B -> Pool : по задачі на партицію:\nсортування й заморожування списків
+Indexer -> Indexer : current.set(new Snapshot) — атомарна підміна
+Indexer -> Pool !! : close() (join)
+Indexer --> Router : BuildStats
+Router --> Клієнт : 200 {"status":"ok","documents_indexed":N,"time_ms":t,...}
+@enduml

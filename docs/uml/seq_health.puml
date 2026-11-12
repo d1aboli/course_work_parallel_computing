@@ -1,0 +1,22 @@
+@startuml seq_health
+!include _style.iuml
+autonumber
+actor "Клієнт / Docker\nhealthcheck" as C
+participant HttpServer as S
+participant Router
+participant OllamaClient as O
+participant Ollama
+C -> S : GET /api/health
+S -> Router : handle(req)
+alt остання перевірка старша за 2 с
+  Router -> O : isAvailable(1 c)
+  O -> Ollama : GET /api/tags
+  alt відповідь 200
+    Ollama --> O : 200
+    O --> Router : true
+  else таймаут / відмова
+    O --> Router : false
+  end
+end
+Router --> C : 200 {"status":"ok","ollama":true|false,\n"index_ready","indexing"}
+@enduml

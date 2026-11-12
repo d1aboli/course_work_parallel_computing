@@ -1,0 +1,17 @@
+@startuml seq_stats
+!include _style.iuml
+autonumber
+actor Клієнт
+participant HttpServer as S
+participant Router
+participant Indexer
+Клієнт -> S : GET /api/stats
+S -> Router : handle(req)
+Router -> Indexer : snapshot() (volatile read, без блокувань)
+alt індекс ще не побудовано
+  Router --> Клієнт : 200 {"documents":0,"index_build_time_ms":0,"threads_used":0}
+else
+  Router -> Router : BuildStats + розмір словника,\nпам'ять JVM, лічильники сервера
+  Router --> Клієнт : 200 {"documents":N,"index_build_time_ms":t,"threads_used":T,...}
+end
+@enduml

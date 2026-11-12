@@ -1,0 +1,33 @@
+@startuml use_case
+!include _style.iuml
+left to right direction
+actor "Користувач\n(Web UI)" as Web
+actor "Користувач\n(CLI)" as Cli
+actor "Дослідник\n(bench)" as Bench
+actor "Docker /\nоркестратор" as Docker
+actor "Ollama (LLM)" as Ollama <<system>>
+
+rectangle "Пошукова система POCW" {
+  usecase "UC1. Побудувати індекс\n(POST /api/index, threads)" as UC1
+  usecase "UC2. Шукати за ключовими\nсловами (POST /api/search)" as UC2
+  usecase "UC3. Шукати зі стрімінгом\nетапів (WS /ws/search)" as UC3
+  usecase "UC4. Переглянути статистику\n(GET /api/stats)" as UC4
+  usecase "UC5. Перевірити стан\n(GET /api/health)" as UC5
+  usecase "Розширити запит\n(query expansion)" as EXP
+}
+
+Web --> UC1
+Web --> UC3
+Web --> UC4
+Web --> UC5
+Cli --> UC2
+Cli --> UC1
+Cli --> UC4
+Bench --> UC1
+Bench --> UC2
+Docker --> UC5
+UC3 ..> EXP : <<include>>
+UC2 <.. EXP : <<extend>>\nexpand=true
+EXP --> Ollama : /api/generate
+UC5 --> Ollama : /api/tags
+@enduml

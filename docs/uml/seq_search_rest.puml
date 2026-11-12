@@ -1,0 +1,49 @@
+@startuml seq_search_rest
+!include _style.iuml
+autonumber
+actor Клієнт
+participant "HttpServer\n(потік http-пулу)" as S
+participant Router
+participant SearchService as SS
+participant QueryExpander as QE
+participant Ollama
+participant Searcher
+participant Snippets
+Клієнт -> S : POST /api/search {"query","mode":"keyword"[,"expand":true]}
+S -> Router : handle(req)
+alt невалідний JSON / порожній query / mode ≠ keyword
+  Router --> Клієнт : 400
+end
+Router -> SS : expand(query, expand)
+SS -> SS : Tokenizer.tokenizeQuery
+opt expand = true
+  SS -> QE : expand(query, terms)
+  alt є в LRU-кеші
+    QE --> SS : терми (source=cache)
+  else однаковий запит уже виконується
+    QE -> QE : чекати спільний CompletableFuture
+  else новий запит
+    QE -> QE : Semaphore.tryAcquire(до дедлайну)
+    QE -> Ollama : POST /api/generate (format=json)
+    Ollama --> QE : {"response":"{\"terms\":[...]}"}
+    QE -> QE : parseTerms + clean
+  end
+  alt таймаут або помилка моделі
+    QE --> SS : [] (source=timeout|error)
+  end
+end
+Router -> SS : keywordSearch(expanded, topK)
+SS -> SS : snapshot = indexer.snapshot()\n(після розширення)
+alt індекс не побудовано
+  SS --> Клієнт : 409
+end
+SS -> Searcher : search(index, user, expansion, topK)
+Searcher -> Searcher : BM25-акумулятор double[N],\nmin-heap top-K (без блокувань)
+Searcher --> SS : hits
+loop кожен hit
+  SS -> Snippets : build(path, терми за рідкісністю)
+end
+SS --> Router : results
+Router --> Клієнт : 200 {"results":[{"doc_id","score","snippet"}],"time_ms"}
+note over S : з'єднання keep-alive:\nпотік читає наступний запит
+@enduml
