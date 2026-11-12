@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>POCW Search — паралельний пошук з LLM</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">POCW<span>search</span></div>
+    <div class="status" id="status">
+      <span class="pill" id="st-server">сервер …</span>
+      <span class="pill" id="st-ollama">ollama …</span>
+      <span class="pill" id="st-index">індекс …</span>
+      <span class="pill" id="st-ws">ws …</span>
+    </div>
+  </header>
+
+  <main>
+    <form id="search-form" autocomplete="off">
+      <input id="q" type="search" placeholder="Пошуковий запит англійською, напр. whale ship captain" maxlength="1000" required>
+      <label class="toggle"><input type="checkbox" id="expand" checked> LLM-розширення</label>
+      <button type="submit" id="go">Шукати</button>
+    </form>
+
+    <ol class="pipeline" id="pipeline" aria-label="Етапи пайплайну">
+      <li data-stage="query_expansion"><b>1</b><span>Розширення запиту</span><small></small></li>
+      <li data-stage="keyword_search"><b>2</b><span>Пошук за індексом</span><small></small></li>
+      <li data-stage="done"><b>3</b><span>Готово</span><small></small></li>
+    </ol>
+
+    <div id="terms" class="terms" hidden></div>
+    <div id="message" class="message" hidden></div>
+    <section id="results" aria-live="polite"></section>
+  </main>
+
+  <aside>
+    <details id="admin">
+      <summary>Індекс і статистика</summary>
+      <form id="index-form">
+        <label>Потоків <input type="number" id="threads" min="1" max="256" value="8"></label>
+        <label>Реалізація
+          <select id="impl">
+            <option value="partitioned">partitioned (неблокуюча)</option>
+            <option value="striped">striped (блокування)</option>
+          </select>
+        </label>
+        <button type="submit" id="build">Побудувати індекс</button>
+      </form>
+      <pre id="stats"></pre>
+    </details>
+  </aside>
+
+  <script src="app.js"></script>
+</body>
+</html>
