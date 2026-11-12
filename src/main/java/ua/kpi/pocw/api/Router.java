@@ -24,7 +24,7 @@ public final class Router {
   private static final Set<String> SEARCH_FIELDS = Set.of("query", "mode", "expand", "top_k",
       "cache");
   private static final Set<String> INDEX_FIELDS = Set.of("threads", "partitions", "batch_size",
-      "impl", "gc");
+      "impl", "mapper", "gc");
   private static final long HEALTH_CACHE_MS = 2_000;
 
   private final Indexer indexer;
@@ -118,9 +118,10 @@ public final class Router {
     if (!impl.equals("partitioned") && !impl.equals("striped")) {
       throw new HttpException(400, "impl must be 'partitioned' or 'striped'");
     }
+    String mapper = stringField(body, "mapper", "arena");
     Indexer.BuildRequest br;
     try {
-      br = new Indexer.BuildRequest(threads, partitions, batch, impl);
+      br = new Indexer.BuildRequest(threads, partitions, batch, impl, mapper);
     } catch (IllegalArgumentException e) {
       throw new HttpException(400, e.getMessage());
     }
@@ -146,6 +147,7 @@ public final class Router {
     out.put("batch_size", s.batchSize());
     out.put("tasks", s.tasks());
     out.put("impl", s.impl());
+    out.put("mapper", s.mapper());
     out.put("documents_failed", s.documentsFailed());
     out.put("phases", s.phases());
     out.put("sync", s.sync());
@@ -202,6 +204,7 @@ public final class Router {
       out.put("index_build_time_ms", s.timeMs());
       out.put("threads_used", s.threads());
       out.put("impl", s.impl());
+      out.put("mapper", s.mapper());
       out.put("partitions", s.partitions());
       out.put("terms", snap.index().termCount());
       out.put("postings", snap.index().postingCount());

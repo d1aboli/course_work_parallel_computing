@@ -36,9 +36,22 @@ import java.util.stream.Stream;
  * than queued.
  */
 public final class Indexer {
-  /** Parameters of one build. */
-  public record BuildRequest(int threads, int partitions, int batchSize, String impl) {
+  /**
+   * Parameters of one build. {@code impl} selects the shared structure ({@code partitioned} or
+   * {@code striped}); {@code mapper} selects how a map task tokenizes ({@code arena}: byte-level
+   * hash table, default; {@code hashmap}: String per token, the first version, kept for
+   * comparison).
+   */
+  public record BuildRequest(int threads, int partitions, int batchSize, String impl,
+      String mapper) {
+    public BuildRequest(int threads, int partitions, int batchSize, String impl) {
+      this(threads, partitions, batchSize, impl, "arena");
+    }
+
     public BuildRequest {
+      if (!mapper.equals("arena") && !mapper.equals("hashmap")) {
+        throw new IllegalArgumentException("mapper must be 'arena' or 'hashmap'");
+      }
       if (threads < 1 || threads > 256) {
         throw new IllegalArgumentException("threads must be in 1..256");
       }
@@ -64,6 +77,7 @@ public final class Indexer {
       int batchSize,
       int tasks,
       String impl,
+      String mapper,
       Map<String, Object> phases,
       Map<String, Object> sync) {}
 
@@ -136,7 +150,8 @@ public final class Indexer {
         final int to = Math.min(n, start + req.batchSize());
         futures.add(
             pool.submit(
-                () -> mapBatch(docs, from, to, builder, readNs, tokenizeNs, mergeNs, bytesRead)));
+                () -> mapBatch(docs, from, to, req.mapper().equals("arena"), builder, readNs,
+                    tokenizeNs, mergeNs, bytesRead)));
       }
       awaitAll(futures);
       tMapEnd = System.nanoTime();
@@ -175,6 +190,7 @@ public final class Indexer {
             req.batchSize(),
             tasks,
             builder.name(),
+            req.mapper(),
             phases,
             builder.stats());
     current.set(new Snapshot(index, stats)); // volatile write: safe publication to readers
@@ -185,13 +201,15 @@ public final class Indexer {
       DocumentTable docs,
       int from,
       int to,
+      boolean arena,
       IndexBuilder builder,
       LongAdder readNs,
       LongAdder tokenizeNs,
       LongAdder mergeNs,
       LongAdder bytesRead) {
-    HashMap<String, PostingList> local = new HashMap<>(8192);
-    HashMap<String, int[]> counts = new HashMap<>(4096);
+    HashMap<String, PostingList> local = arena ? null : new HashMap<>(8192);
+    HashMap<String, int[]> counts = arena ? null : new HashMap<>(4096);
+    BatchTermTable table = arena ? new BatchTermTable(16_384) : null;
     long read = 0;
     long tokenize = 0;
     for (int doc = from; doc < to; doc++) {
@@ -205,6 +223,14 @@ public final class Indexer {
         continue;
       }
       long b = System.nanoTime();
+      if (arena) {
+        docs.setLength(doc, table.addDocument(data, data.length, doc));
+        long c = System.nanoTime();
+        read += b - a;
+        tokenize += c - b;
+        bytesRead.add(data.length);
+        continue;
+      }
       counts.clear();
       int[] tokens = new int[1];
       Tokenizer.tokenize(
@@ -234,7 +260,7 @@ public final class Indexer {
       bytesRead.add(data.length);
     }
     long m0 = System.nanoTime();
-    builder.addBatch(local);
+    builder.addBatch(arena ? table.drain() : local);
     mergeNs.add(System.nanoTime() - m0);
     readNs.add(read);
     tokenizeNs.add(tokenize);
