@@ -23,7 +23,6 @@ $X bench memory --rebuilds 6 --threads 12 --no-gc --out memory.csv
 $X bench memory --rebuilds 6 --threads 12 --out memory.csv
 
 echo "== 4. keyword search throughput vs clients"
-$X bench index --threads 12 --runs 1 --threads 12 --out last_build.csv
 $X bench throughput --clients 1,2,4,8,16,32,64 --duration 20 --warmup 5 --out throughput.csv
 
 echo "== 5. search with LLM expansion (uncached, then cached)"
