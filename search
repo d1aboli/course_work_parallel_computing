@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# CLI wrapper for Linux/macOS/Git Bash: ./search "query"  (runs the client in the container)
+cd "$(dirname "$0")"
+if [ -t 1 ]; then tty=""; else tty="-T"; fi
+exec docker compose exec $tty server search "$@"
