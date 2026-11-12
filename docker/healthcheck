@@ -1,0 +1,6 @@
+#!/bin/bash
+# Docker HEALTHCHECK without curl: raw HTTP over bash /dev/tcp, healthy iff status 200.
+exec 3<>/dev/tcp/127.0.0.1/"${PORT:-8080}" || exit 1
+printf 'GET /api/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+read -r status_line <&3
+[[ "$status_line" == *" 200 "* ]]

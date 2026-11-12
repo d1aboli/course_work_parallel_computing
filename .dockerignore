@@ -1,0 +1,7 @@
+data
+build
+report
+docs
+*.zip
+.git
+bench/results

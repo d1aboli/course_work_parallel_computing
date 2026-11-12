@@ -1,0 +1,59 @@
+# One-command deployment:  docker compose up --build
+# Dataset location on the host is taken from DATASET_DIR (see .env.example).
+name: pocw-search
+
+services:
+  server:
+    build: .
+    image: pocw-search-server
+    container_name: search-server
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    environment:
+      DATA_DIR: /data
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:1.5b}
+      LLM_CONCURRENCY: ${LLM_CONCURRENCY:-2}
+      AUTO_INDEX_THREADS: ${AUTO_INDEX_THREADS:-0}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+    volumes:
+      - ${DATASET_DIR:-./data/docs}:/data:ro
+      - ./bench/results:/app/bench/results
+    depends_on:
+      ollama:
+        condition: service_started
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_NUM_PARALLEL: ${LLM_CONCURRENCY:-2}
+      OLLAMA_KEEP_ALIVE: 30m
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # One-shot job: downloads the model into the shared volume, then exits.
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: ollama-init
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:1.5b}
+    entrypoint: ["/bin/sh", "-c", "ollama pull \"$$OLLAMA_MODEL\" && echo model ready"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  ollama_data:

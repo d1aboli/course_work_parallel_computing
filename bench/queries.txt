@@ -1,0 +1,21 @@
+# Benchmark query mix: one query per line (English, mixed frequency terms)
+whale ship captain
+love letter
+war and peace
+ancient rome emperor
+treasure island pirates
+detective murder mystery
+electricity experiment
+mountain river valley
+king queen castle
+steam engine railway
+garden flowers spring
+storm at sea
+paris revolution
+moon stars night
+gold mine
+doctor medicine disease
+horse rider
+church bishop
+american civil war
+indian tribe chief

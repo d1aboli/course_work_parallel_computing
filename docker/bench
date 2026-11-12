@@ -1,0 +1,3 @@
+#!/bin/sh
+# Benchmark tool inside the container: bench index|throughput|queries ...
+exec java -Xmx512m -cp /app/app.jar ua.kpi.pocw.bench.Bench "$@"

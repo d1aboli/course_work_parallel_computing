@@ -1,0 +1,3 @@
+#!/bin/sh
+# CLI client inside the container: search "query"
+exec java -XX:TieredStopAtLevel=1 -Xshare:auto -cp /app/app.jar ua.kpi.pocw.cli.SearchCli "$@"
