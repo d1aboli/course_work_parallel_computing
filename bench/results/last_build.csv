@@ -1,0 +1,2 @@
+run,impl,partitions,threads,time_ms,documents,list_ms,map_merge_wall_ms,finalize_wall_ms,read_cpu_ms,tokenize_cpu_ms,merge_cpu_ms,sync1,sync2,heap_used_mb,rss_mb
+1,partitioned,64,12,3246,16793,100,3073,73,1281,27547,7600,1235,1235,352,3912
